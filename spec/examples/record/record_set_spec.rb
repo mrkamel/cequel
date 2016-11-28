@@ -37,6 +37,12 @@ describe Cequel::Record::RecordSet do
     column :permalink, :ascii, index: true
   end
 
+  model :CompositeModel do
+    key :date, :text, partition: true
+    key :bucket, :int, partition: true
+    key :id, :timeuuid, auto: true
+  end
+
   let(:subdomains) { blogs.map(&:subdomain) }
   let(:uuids) { Array.new(2) { Cequel.uuid }}
   let(:now) { Time.at(Time.now.to_i) }
@@ -366,6 +372,14 @@ describe Cequel::Record::RecordSet do
       expect(Post.find_each(:batch_size => 2).map(&:title)).to match_array(
         (0...5).flat_map { |i| ["Cequel #{i}", "Sequel #{i}", "Mongoid #{i}"] }
       )
+    end
+
+    it 'should fail for composite partition keys' do
+      2000.times do
+        CompositeModel.create! date: "2016-11-01", bucket: 1
+      end
+
+      expect { CompositeModel.find_each {} }.to raise_error(Cassandra::Errors::InvalidError)
     end
 
     describe "hydration" do
